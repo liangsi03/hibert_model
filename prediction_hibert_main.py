@@ -24,21 +24,11 @@ def readData(filename):
         obj = json.load(fp)
         batch = []
         for i in range(len(obj)):
-            if (len(obj[i]) > MIN_LENGTH):
-                batch.append(obj[i])
+            batch.append(obj[i])
             if (len(batch) == BATCH_SIZE):
                 train_dataset.append((int(i/BATCH_SIZE), batch))
                 batch = []
     return train_dataset
-
-def getCheckpoint(sample_transformer, optimizer):
-    ckpt = tf.train.Checkpoint(transformer=sample_transformer,
-                           optimizer=optimizer)
-    ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=5)
-    # if a checkpoint exists, restore the latest checkpoint.
-    if ckpt_manager.latest_checkpoint:
-        ckpt.restore(ckpt_manager.latest_checkpoint)
-        print ('Latest checkpoint restored!!')
 
 def train_step(sample_transformer, loss_object, optimizer, train_loss, train_accuracy, inp, tar, masked_index):
     tar_inp = tar[:, :-1]
@@ -68,7 +58,8 @@ def main():
     loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
     train_loss = tf.keras.metrics.Mean(name='train_loss')
     train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='train_accuracy')
-    getCheckpoint(sample_transformer, optimizer)
+    getCheckpoint(sample_transformer, optimizer, checkpoint_path)
+    print("checkpoint checked.")
 
     print("start training...")
     for epoch in range(EPOCHS):

@@ -255,3 +255,14 @@ def getVocab():
         lines = [line.strip() for line in vocab_file.readlines()]
         vocab_size = len(lines)
     return vocab_size
+
+
+
+def getCheckpoint(sample_transformer, optimizer, checkpoint_path):
+    ckpt = tf.train.Checkpoint(transformer=sample_transformer,
+                           optimizer=optimizer)
+    ckpt_manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=5)
+    # if a checkpoint exists, restore the latest checkpoint.
+    if ckpt_manager.latest_checkpoint:
+        ckpt.restore(ckpt_manager.latest_checkpoint)
+        print ('Latest checkpoint restored!!')
