@@ -8,13 +8,20 @@ from nltk.tokenize import RegexpTokenizer
 texts = []
 word_dict = {}
 id_dict = {}
-directory = '../author_content_summary'
+directory = './data'
 tokenizer = RegexpTokenizer(r'\w+')
 
 def read_data():
     for filename in os.listdir(directory):
+        print("reading " + filename)
         with open(directory + '/' + filename, 'r') as read_file:
             data = json.load(read_file)
+        if "predict" in filename:
+            for i in range(0,len(data)):
+                if (data[i] == [[3, 1, 2]]):
+                    print(filename)
+                texts.append(data[i])
+        elif "sum" in filename:
             for i in range(0,len(data)):
                 content = data[i][1]
                 summary = data[i][2]
@@ -38,7 +45,7 @@ def gen_vocab(texts):
     # we also need padding position as 0.
     # You can see more details in the latter part.
     word_list = ["_PAD_", "_BOS_", "_EOS_", "_BOP_", "_NUM_", "_UNK_"] + word_list
-    with open("data/vocab", "w") as vocab_file:
+    with open("vocab", "w") as vocab_file:
         for word in word_list:
             vocab_file.write(word + "\n")  
     return len(word_list)
@@ -73,31 +80,37 @@ def gen_id_seqs():
             seqs.append(seq)
         return seqs
 
-    with open("data/vocab", "r") as vocab_file:
+    with open("vocab", "r") as vocab_file:
         lines = [line.strip() for line in vocab_file.readlines()]
         word_dict = dict([(b, a) for (a, b) in enumerate(lines)])
 
     for filename in os.listdir(directory):
+        print("encoding " + filename)
         texts = []
         with open(directory + '/' + filename, 'r') as read_file:
             data = json.load(read_file)
+        if "predict" in filename:
+            for i in range(0,len(data)):
+                texts.append(text_to_id(data[i]))
+        elif "sum" in filename:
             for i in range(0,len(data)):
                 content = text_to_id(data[i][1])
                 summary = text_to_id(data[i][2])
                 texts.append(content)
-                texts.append(summary)    
-        with open('data/' + filename, 'w') as f:
+                texts.append(summary)
+        with open('data/' + "encoded_" + filename, 'w') as f:
             json.dump(texts, f)
             print("encoded " + filename)
 
 
-
 def main():
+    '''
     print("start working...")
     texts = read_data()
     print("data read.")
     vocab_size = gen_vocab(texts)
     print("vocab size is: " + str(vocab_size))
+    '''
     gen_id_seqs()
     print("tokens encoded.")
 

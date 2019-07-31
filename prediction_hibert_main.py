@@ -8,8 +8,9 @@ BUFFER_SIZE = 20000
 BATCH_SIZE = 16
 MIN_LENGTH = 5
 EPOCHS = 20
-DATA = 'clean_test.json'
-checkpoint_path = "./checkpoints/train"
+DATA = 'encoded_predict_test.json'
+directory = "data/encoded_predict/"
+checkpoint_path = "./checkpoints/predict_train"
 num_layers = 4
 d_model = 128
 dff = 512
@@ -20,7 +21,7 @@ dropout_rate = 0.1
 
 def readData(filename):
     train_dataset = []
-    with open('data/' + filename, 'r') as fp:
+    with open(directory + filename, 'r') as fp:
         obj = json.load(fp)
         batch = []
         for i in range(len(obj)):
