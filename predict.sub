@@ -1,0 +1,12 @@
+#!/bin/bash
+#SBATCH -J s                        # Job name
+#SBATCH -o s%j.out                  # Name of stdout output log file (%j expands to jobID)
+#SBATCH -e s%j.err                  # Name of stderr output log file (%j expands to jobID)
+#SBATCH -N 1                                 # Total number of nodes requested
+#SBATCH -n 1                                 # Total number of cores requested
+#SBATCH --mem=15000                          # Total amount of (real) memory requested (per node)
+#SBATCH -t 96:00:00                          # Time limit (hh:mm:ss)
+#SBATCH --partition=default_gpu              # Request partition for resource allocation
+#SBATCH --gres=gpu:1                         # Specify a list of generic consumable resources (per node)
+
+cd /home/yl668/hibert_model; python3 prediction_hibert_main.py

@@ -8,8 +8,8 @@ BUFFER_SIZE = 20000
 BATCH_SIZE = 16
 MIN_LENGTH = 5
 EPOCHS = 20
-DATA = 'encoded_predict_test.json'
-directory = "data/encoded_predict/"
+DATA = 'predict_train.json'
+directory = "data/encoded/"
 checkpoint_path = "./checkpoints/predict_train"
 num_layers = 4
 d_model = 128
@@ -18,6 +18,10 @@ num_heads = 8
 seq_length = 20
 para_length = 10
 dropout_rate = 0.1
+
+def write(meg):
+    with open("predict_out.txt", "a") as fp:
+    	fp.write(meg+"\n")
 
 def readData(filename):
     train_dataset = []
@@ -46,12 +50,16 @@ def train_step(sample_transformer, loss_object, optimizer, train_loss, train_acc
     train_accuracy(tar_real, predictions)
 
 def main():
+    write("start loading data...")
     vocab_size = getVocab() 
     input_vocab_size = vocab_size
     target_vocab_size = vocab_size
     train_dataset =  readData(DATA)
-    print("data loaded.")
+    write("data loaded.")
 
+    config = tf.ConfigProto(log_device_placement=True, allow_soft_placement=True)
+    config.gpu_options.allow_growth = True
+    tf.enable_eager_execution(config=config)
     sample_transformer = PredictionHibert(num_layers, d_model, num_heads, dff,
                           input_vocab_size, target_vocab_size, dropout_rate)    
     learning_rate = CustomSchedule(d_model)
@@ -60,10 +68,11 @@ def main():
     train_loss = tf.keras.metrics.Mean(name='train_loss')
     train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='train_accuracy')
     getCheckpoint(sample_transformer, optimizer, checkpoint_path)
-    print("checkpoint checked.")
+    write("checkpoint checked.")
 
-    print("start training...")
+    write("start training...")
     for epoch in range(EPOCHS):
+        write("training epoch " + str(epoch))
         start = time.time()
         train_loss.reset_states()
         train_accuracy.reset_states()
@@ -72,17 +81,17 @@ def main():
             train_step(sample_transformer, loss_object, optimizer, train_loss, train_accuracy, 
                 masked_inp_batch, masked_sentence_batch, masked_index_batch)
             if batch % 5 == 0:
-                print ('Epoch {} Batch {} Loss {:.4f} Accuracy {:.4f}'.format(
+                write('Epoch {} Batch {} Loss {:.4f} Accuracy {:.4f}'.format(
                     epoch + 1, batch, train_loss.result(), train_accuracy.result()))
       
         if (epoch + 1) % 5 == 0:
             ckpt_save_path = ckpt_manager.save()
-            print ('Saving checkpoint for epoch {} at {}'.format(epoch+1, ckpt_save_path))
+            write('Saving checkpoint for epoch {} at {}'.format(epoch+1, ckpt_save_path))
     
-        print ('Epoch {} Loss {:.4f} Accuracy {:.4f}'.format(epoch + 1, 
+        write('Epoch {} Loss {:.4f} Accuracy {:.4f}'.format(epoch + 1, 
                                                 train_loss.result(), 
                                                 train_accuracy.result()))
     
-        print ('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
+        write('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
 
 main()
