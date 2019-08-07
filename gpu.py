@@ -5,14 +5,14 @@ import json
 from prediction_hibert_model import *
 
 BUFFER_SIZE = 20000
-BATCH_SIZE = 32
+BATCH_SIZE = 16
 MIN_LENGTH = 5
 EPOCHS = 20
 DATA = 'predict_train.json'
 directory = "data/encoded/"
-checkpoint_path = "./checkpoints/predict_train"
-num_layers = 6
-d_model = 512
+checkpoint_path = "./checkpoints/predict_train_gpu"
+num_layers = 4
+d_model = 128
 dff = 512
 num_heads = 8
 seq_length = 20
@@ -20,7 +20,7 @@ para_length = 10
 dropout_rate = 0.1
 
 def write(meg):
-    with open("predict_out.txt", "a") as fp:
+    with open("predict_out_gpu.txt", "a") as fp:
     	fp.write(meg+"\n")
 
 def readData(filename):
@@ -49,7 +49,7 @@ def train_step(sample_transformer, loss_object, optimizer, train_loss, train_acc
     train_loss(loss)
     train_accuracy(tar_real, predictions)
 
-def main():
+def work():
     write("start loading data...")
     vocab_size = getVocab() 
     input_vocab_size = vocab_size
@@ -57,9 +57,6 @@ def main():
     train_dataset =  readData(DATA)
     write("data loaded.")
 
-    config = tf.ConfigProto(log_device_placement=True, allow_soft_placement=True)
-    config.gpu_options.allow_growth = True
-    tf.enable_eager_execution(config=config)
     sample_transformer = PredictionHibert(num_layers, d_model, num_heads, dff,
                           input_vocab_size, target_vocab_size, dropout_rate)    
     learning_rate = CustomSchedule(d_model)
@@ -67,7 +64,7 @@ def main():
     loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
     train_loss = tf.keras.metrics.Mean(name='train_loss')
     train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='train_accuracy')
-    ckpt_manager = getCheckpoint(sample_transformer, optimizer, checkpoint_path)
+    getCheckpoint(sample_transformer, optimizer, checkpoint_path)
     write("checkpoint checked.")
 
     write("start training...")
@@ -78,22 +75,33 @@ def main():
         train_accuracy.reset_states()
         for (batch, inp) in train_dataset:
             masked_inp_batch, masked_sentence_batch, masked_index_batch = maskBatch(inp, para_length, seq_length)        
-            train_step(sample_transformer, loss_object, optimizer, train_loss, train_accuracy, 
-                masked_inp_batch, masked_sentence_batch, masked_index_batch)
+            train_step(sample_transformer, loss_object, optimizer, train_loss, train_accuracy, masked_inp_batch, masked_sentence_batch, masked_index_batch)
             if batch % 5 == 0:
-                write('Epoch {} Batch {} Loss {:.4f} Accuracy {:.4f}'.format(
-                    epoch + 1, batch, train_loss.result(), train_accuracy.result()))
-            if batch % 20 == 0:
-                ckpt_save_path = ckpt_manager.save()
-                write('Saving checkpoint for epoch {} at {}'.format(epoch+1, ckpt_save_path))
-       
-        ckpt_save_path = ckpt_manager.save()
-        write('Saving checkpoint for epoch {} at {}'.format(epoch+1, ckpt_save_path))
+                loss = tf.strings.as_string(train_loss.result()).eval()
+                accu = tf.strings.as_string(train_accuracy.result()).eval()
+                write(str(loss))
+                write('Epoch {} Batch {} Loss {:.4f} Accuracy {:.4f}'.format(epoch + 1, batch, 0.000, 0.0000))      
+        if (epoch + 1) % 5 == 0:
+            ckpt_save_path = ckpt_manager.save()
+            write('Saving checkpoint for epoch {} at {}'.format(epoch+1, ckpt_save_path))
     
         write('Epoch {} Loss {:.4f} Accuracy {:.4f}'.format(epoch + 1, 
                                                 train_loss.result(), 
                                                 train_accuracy.result()))
     
         write('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
+
+
+
+def main():
+    gpus = get_available_gpus()
+    write(str(gpus[0]))
+    config = tf.ConfigProto(log_device_placement=True, allow_soft_placement=True)
+    config.gpu_options.allow_growth = True
+    sess = tf.Session(config=config)
+    with sess.as_default():
+        with tf.device(gpus[0]):
+            sess.run(tf.global_variables_initializer())
+            work()
 
 main()
