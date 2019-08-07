@@ -5,20 +5,26 @@ import json
 from hibert_model import *
 
 BUFFER_SIZE = 20000
-BATCH_SIZE = 16
+BATCH_SIZE = 32
 MIN_LENGTH = 5
 EPOCHS = 20
-DATA = 'encoded_sum_test.json'
-directory = "data/encoded_predict/"
-checkpoint_path = "./checkpoints/train"
-num_layers = 4
-d_model = 128
+DATA = 'sum_train.json'
+directory = "data/encoded/"
+checkpoint_path = "./checkpoints/predict_train"
+num_layers = 6
+d_model = 512
 dff = 512
 num_heads = 8
 seq_length = 20
-sum_length = 1
 para_length = 10
 dropout_rate = 0.1
+
+
+
+def write(meg):
+    with open("sum_out.txt", "a") as fp:
+        fp.write(meg+"\n")
+        
 
 
 def readData(filename):
@@ -57,11 +63,14 @@ def train_step(sample_transformer, loss_object, optimizer, train_loss, train_acc
 
 
 def main():
+    write("start loading data...")
     vocab_size = getVocab() 
-    input_vocab_size = vocab_size
-    target_vocab_size = vocab_size
-    train_dataset = readData(DATA)
-    print("data loaded.")
+    train_dataset =  readData(DATA)
+    write("data loaded.")
+    
+    config = tf.ConfigProto(log_device_placement=True, allow_soft_placement=True)
+    config.gpu_options.allow_growth = True
+    tf.enable_eager_execution(config=config)
     
     sample_transformer = Hibert(num_layers, d_model, num_heads, dff, vocab_size, vocab_size, dropout_rate) 
     learning_rate = CustomSchedule(d_model)
@@ -69,30 +78,35 @@ def main():
     loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
     train_loss = tf.keras.metrics.Mean(name='train_loss')
     train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(name='train_accuracy')
-    getCheckpoint(sample_transformer, optimizer, checkpoint_path)
+    ckpt_manager = getCheckpoint(sample_transformer, optimizer, checkpoint_path)
+    write("checkpoint checked.")
 
     print("start training...")
     for epoch in range(EPOCHS):
+        write("training epoch " + str(epoch))
         start = time.time()
         train_loss.reset_states()
         train_accuracy.reset_states()
-    
+
         for (batch, content, summary) in train_dataset:
             content, summary = makeBatch(content, summary, para_length, sum_length, seq_length)
             train_step(sample_transformer, loss_object, optimizer, train_loss, train_accuracy, content, summary)
 
             if batch % 5 == 0:
-                print ('Epoch {} Batch {} Loss {:.4f} Accuracy {:.4f}'.format(
+                write('Epoch {} Batch {} Loss {:.4f} Accuracy {:.4f}'.format(
                     epoch + 1, batch, train_loss.result(), train_accuracy.result()))
-      
-        if (epoch + 1) % 5 == 0:
-            ckpt_save_path = ckpt_manager.save()
-            print ('Saving checkpoint for epoch {} at {}'.format(epoch+1, ckpt_save_path))
+
+            if batch % 20 == 0:
+                ckpt_save_path = ckpt_manager.save()
+                write('Saving checkpoint for epoch {} at {}'.format(epoch+1, ckpt_save_path))
+
+        ckpt_save_path = ckpt_manager.save()
+        write('Saving checkpoint for epoch {} at {}'.format(epoch+1, ckpt_save_path))
     
-        print ('Epoch {} Loss {:.4f} Accuracy {:.4f}'.format(epoch + 1, 
+        write('Epoch {} Loss {:.4f} Accuracy {:.4f}'.format(epoch + 1, 
                                                 train_loss.result(), 
                                                 train_accuracy.result()))
     
-        print ('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
+        write('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
 
 main()
